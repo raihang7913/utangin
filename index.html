@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Kontrakan Resbal</title>
-    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.*/css/pico.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1/css/pico.min.css">
     <style>
         body { padding-bottom: 5rem; }
         .expense-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: var(--border-radius); }
@@ -212,7 +212,9 @@
                 const { error: participantsError } = await supabase.from('expense_participants').insert(participantsData);
                 if (participantsError) throw participantsError;
                 
+                // ...existing code...
                 document.getElementById('expense-form').reset();
+                alert('Pengeluaran berhasil disimpan');
                 await Promise.all([fetchExpenses(), calculateAndDisplayDebt()]);
 
             } catch (error) {
@@ -225,4 +227,5 @@
         });
     </script>
 </body>
+
 </html>
