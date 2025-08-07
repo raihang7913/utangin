@@ -61,11 +61,15 @@
                 const userId = data.user.id;
                 const { error: profileErr } = await supabase.from('profiles').insert([{ id: userId, username, email }]);
                 if (profileErr) console.error('Error menyimpan profile:', profileErr.message);
-                feedbackEl.textContent = 'Pendaftaran berhasil! Silakan cek email kamu untuk verifikasi.';
-                feedbackEl.style.color = 'green';
-                registerForm.reset();
-                // beri waktu user lihat pesan sebelum redirect
-                setTimeout(() => { window.location.href = "/login.html"; }, 2000);
+                // Jika session tersedia, auto-login sukses
+                if (data.session) {
+                    window.location.href = "/Index.html";
+                } else {
+                    feedbackEl.textContent = 'Pendaftaran berhasil! Silakan cek email kamu untuk verifikasi.';
+                    feedbackEl.style.color = 'green';
+                    registerForm.reset();
+                    setTimeout(() => { window.location.href = "/login.html"; }, 2000);
+                }
             }
             document.getElementById('register-button').setAttribute('aria-busy', 'false');
         });
