@@ -6,7 +6,6 @@
     <title>Dashboard - Kontrakan Resbal</title>
     <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.*/css/pico.min.css">
     <style>
-        /* Sedikit style tambahan */
         body { padding-bottom: 5rem; }
         .expense-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: var(--border-radius); }
         .expense-item:nth-child(odd) { background-color: var(--card-background-color); }
@@ -50,7 +49,8 @@
                 
                 <label>Siapa Saja yang Ikut Patungan?</label>
                 <fieldset id="participants-section">
-                    <progress></progress> </fieldset>
+                    <progress></progress>
+                </fieldset>
                 
                 <button type="submit" id="submit-button" aria-busy="false">Simpan</button>
             </form>
@@ -58,7 +58,8 @@
 
         <h2 style="margin-top: 2rem;">Daftar Pengeluaran</h2>
         <div id="expense-list">
-            <progress></progress> </div>
+            <progress></progress>
+        </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -66,46 +67,24 @@
 
     <script>
         // =================================================================================
-        // --- 1. KONFIGURASI SUPABASE ---
+        // BAGIAN 1: INISIALISASI VARIABEL (HARUS SELALU DI ATAS)
         // =================================================================================
-        const SUPABASE_URL = 'https://mewreafpeuawlnaworov.supabase.co'; // GANTI DENGAN URL SUPABASE LO
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld3JlYWZwZXVhd2xuYXdvcm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MzgyNTQsImV4cCI6MjA3MDExNDI1NH0.R7sdHt7Ry3jt4kIaMH-IXnBUUzteA2Bvw4Eq8ZhncEo'; // GANTI DENGAN ANON KEY LO
+        const SUPABASE_URL = 'https://mewreafpeuawlnaworov.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld3JlYWZwZXVhd2xuYXdvcm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MzgyNTQsImV4cCI6MjA3MDExNDI1NH0.R7sdHt7Ry3jt4kIaMH-IXnBUUzteA2Bvw4Eq8ZhncEo';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        // =================================================================================
-        // --- 2. PENJAGA HALAMAN (AUTH GUARD) & STATE ---
-        // =================================================================================
         let currentUser = null;
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                window.location.href = "login.html"; // Lempar jika tidak login
-            } else {
-                currentUser = user;
-                document.getElementById('user-email').textContent = user.email;
-                await Promise.all([
-                    fetchExpenses(),
-                    fetchAndDisplayUsers(),
-                    calculateAndDisplayDebt()
-                ]);
-            }
-        });
+        const userEmailEl = document.getElementById('user-email');
+        const expenseListEl = document.getElementById('expense-list');
+        const participantsSection = document.getElementById('participants-section');
+        const debtStatusEl = document.getElementById('debt-status');
+        const debtSummaryEl = document.getElementById('debt-summary');
 
         // =================================================================================
-        // --- 3. FUNGSI LOGOUT ---
+        // BAGIAN 2: DEFINISI SEMUA FUNGSI
         // =================================================================================
-        document.getElementById('logout-button').addEventListener('click', async (e) => {
-            e.preventDefault();
-            await supabase.auth.signOut();
-            window.location.href = "login.html";
-        });
-
-        // =================================================================================
-        // --- 4. FUNGSI UNTUK MEMUAT DATA APLIKASI ---
-        // =================================================================================
+        
         async function fetchAndDisplayUsers() {
-            const participantsSection = document.getElementById('participants-section');
             const { data: profiles, error } = await supabase.from('profiles').select('id, username');
             if (error) {
                 participantsSection.innerHTML = '<p style="color:red;">Gagal memuat daftar teman.</p>';
@@ -118,14 +97,12 @@
                         <label for="user-${profile.id}">
                             <input type="checkbox" id="user-${profile.id}" name="participant" value="${profile.id}">
                             ${profile.username || 'User Tanpa Nama'}
-                        </label>
-                    `;
+                        </label>`;
                 }
             });
         }
 
         async function fetchExpenses() {
-            const expenseListEl = document.getElementById('expense-list');
             expenseListEl.innerHTML = '<progress></progress>';
             const { data: expenses, error } = await supabase.from('expenses').select(`*, profiles(username)`).order('created_at', { ascending: false });
 
@@ -154,9 +131,7 @@
         }
 
         async function calculateAndDisplayDebt() {
-            const debtStatusEl = document.getElementById('debt-status');
             debtStatusEl.innerHTML = 'Menghitung... <progress></progress>';
-            
             const { data: paidData } = await supabase.from('expenses').select('amount').eq('payer_id', currentUser.id);
             const totalPaid = paidData.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -165,14 +140,12 @@
 
             const balance = totalPaid - totalOwed;
             
-            const debtSummaryEl = document.getElementById('debt-summary');
             if (balance > 0) {
-                debtStatusEl.innerHTML = `Secara keseluruhan, temanmu berutang padamu sebesar <strong>Rp ${new Intl.NumberFormat('id-ID').format(balance)}</strong>.`;
+                debtStatusEl.innerHTML = `✅ Secara keseluruhan, temanmu berutang padamu sebesar <strong>Rp ${new Intl.NumberFormat('id-ID').format(balance)}</strong>.`;
                 debtSummaryEl.style.backgroundColor = 'var(--pico-color-green-200)';
                 debtSummaryEl.style.color = 'var(--pico-color-green-700)';
-
             } else if (balance < 0) {
-                debtStatusEl.innerHTML = `Secara keseluruhan, kamu berutang sebesar <strong>Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(balance))}</strong>.`;
+                debtStatusEl.innerHTML = `❌ Secara keseluruhan, kamu berutang sebesar <strong>Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(balance))}</strong>.`;
                 debtSummaryEl.style.backgroundColor = 'var(--pico-color-red-200)';
                 debtSummaryEl.style.color = 'var(--pico-color-red-700)';
             } else {
@@ -181,10 +154,28 @@
                 debtSummaryEl.style.color = 'var(--pico-color)';
             }
         }
+        
+        // =================================================================================
+        // BAGIAN 3: EKSEKUSI & EVENT LISTENERS (HARUS DI PALING BAWAH)
+        // =================================================================================
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                window.location.href = "login.html";
+            } else {
+                currentUser = user;
+                userEmailEl.textContent = user.email;
+                await Promise.all([ fetchExpenses(), fetchAndDisplayUsers(), calculateAndDisplayDebt() ]);
+            }
+        });
 
-        // =================================================================================
-        // --- 5. FUNGSI MENANGANI SUBMIT FORM ---
-        // =================================================================================
+        document.getElementById('logout-button').addEventListener('click', async (e) => {
+            e.preventDefault();
+            await supabase.auth.signOut();
+            window.location.href = "login.html";
+        });
+
         document.getElementById('expense-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const submitButton = document.getElementById('submit-button');
@@ -194,10 +185,9 @@
             const description = document.getElementById('description').value;
             const amount = parseFloat(document.getElementById('amount').value);
             const photoFile = document.getElementById('photo').files[0];
-
             const checkedBoxes = document.querySelectorAll('input[name="participant"]:checked');
             const participantIds = Array.from(checkedBoxes).map(cb => cb.value);
-            participantIds.push(currentUser.id); // Masukkan diri sendiri ke dalam grup patungan
+            participantIds.push(currentUser.id);
             
             const totalParticipants = participantIds.length;
             if (totalParticipants === 1 && participantIds[0] === currentUser.id) {
@@ -208,27 +198,21 @@
             }
 
             try {
-                // Kompresi dan Upload Gambar
                 const options = { maxSizeMB: 0.5, maxWidthOrHeight: 800 };
                 const compressedFile = await imageCompression(photoFile, options);
                 const filePath = `${currentUser.id}/${Date.now()}-${compressedFile.name}`;
                 await supabase.storage.from('receipts').upload(filePath, compressedFile);
                 const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(filePath);
 
-                // Simpan ke tabel 'expenses'
                 const { data: newExpense, error: expenseError } = await supabase.from('expenses').insert({ description, amount, photo_url: urlData.publicUrl, payer_id: currentUser.id }).select().single();
                 if (expenseError) throw expenseError;
                 
-                // Siapkan dan simpan data partisipan
                 const amountPerPerson = amount / totalParticipants;
                 const participantsData = participantIds.map(id => ({ expense_id: newExpense.id, participant_id: id, amount_owed: amountPerPerson }));
                 const { error: participantsError } = await supabase.from('expense_participants').insert(participantsData);
                 if (participantsError) throw participantsError;
                 
-                alert('Pengeluaran berhasil dicatat dan dibagi!');
                 document.getElementById('expense-form').reset();
-                
-                // Muat ulang semua data di halaman
                 await Promise.all([fetchExpenses(), calculateAndDisplayDebt()]);
 
             } catch (error) {
@@ -241,5 +225,4 @@
         });
     </script>
 </body>
-
 </html>
