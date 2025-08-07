@@ -15,8 +15,8 @@
         <article>
             <h1 style="text-align: center;">Login</h1>
             <form id="login-form">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="email@kamu.com" required>
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Username kamu" required>
 
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" placeholder="Password kamu" required>
@@ -40,11 +40,20 @@
             event.preventDefault();
             document.getElementById('login-button').setAttribute('aria-busy', 'true');
 
-            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
+            // Cari email berdasarkan username
+            const { data:profile, error:profileErr } = await supabase.from('profiles').select('email').eq('username', username).single();
+            if (profileErr || !profile) {
+                alert('Username tidak ditemukan');
+                document.getElementById('login-button').setAttribute('aria-busy', 'false');
+                return;
+            }
+            const email = profile.email;
+
             const { data, error } = await supabase.auth.signInWithPassword({
-                email: email,
+                email,
                 password: password,
             });
 
