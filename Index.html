@@ -71,9 +71,17 @@
         // =================================================================================
         const SUPABASE_URL = 'https://mewreafpeuawlnaworov.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld3JlYWZwZXVhd2xuYXdvcm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MzgyNTQsImV4cCI6MjA3MDExNDI1NH0.R7sdHt7Ry3jt4kIaMH-IXnBUUzteA2Bvw4Eq8ZhncEo';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        let currentUser = null;
+        // Tunggu sampai window.supabase tersedia
+        let supabase;
+        if (window.supabase) {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } else {
+            // Fallback jika window.supabase belum ready
+            setTimeout(() => {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }, 100);
+        }        let currentUser = null;
         const userEmailEl = document.getElementById('user-email');
         const expenseListEl = document.getElementById('expense-list');
         const participantsSection = document.getElementById('participants-section');
@@ -160,9 +168,14 @@
         // =================================================================================
         
         document.addEventListener('DOMContentLoaded', async () => {
+            // Pastikan supabase sudah ready
+            if (!supabase) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            
             const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            window.location.href = "/login.html";
+            if (!user) {
+                window.location.href = "/login.html";
             } else {
                 currentUser = user;
                 userEmailEl.textContent = user.email;
@@ -172,8 +185,22 @@
 
         document.getElementById('logout-button').addEventListener('click', async (e) => {
             e.preventDefault();
-            await supabase.auth.signOut();
-        window.location.href = "/login.html";
+            console.log('Logout clicked'); // Debug
+            
+            try {
+                // Pastikan supabase sudah ready
+                if (!supabase) {
+                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+                
+                await supabase.auth.signOut();
+                console.log('Signed out successfully'); // Debug
+                window.location.href = "/login.html";
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Paksa redirect meskipun ada error
+                window.location.href = "/login.html";
+            }
         });
 
         document.getElementById('expense-form').addEventListener('submit', async (e) => {
