@@ -25,6 +25,7 @@
                 <input type="password" id="password" name="password" placeholder="Minimal 6 karakter" required>
                 
                 <button type="submit" id="register-button">Daftar</button>
+                <p id="register-feedback"></p>
             </form>
             <footer style="text-align: center;">
                 Sudah punya akun? <a href="login.html">Login di sini</a>
@@ -38,8 +39,10 @@
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const registerForm = document.getElementById('register-form');
+        const feedbackEl = document.getElementById('register-feedback');
         registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            feedbackEl.textContent = '';
             document.getElementById('register-button').setAttribute('aria-busy', 'true');
 
             const username = document.getElementById('username').value;
@@ -49,15 +52,18 @@
             const { data, error } = await supabase.auth.signUp({ email, password });
 
             if (error) {
-                alert("Error pendaftaran: " + error.message);
+                feedbackEl.textContent = error.message;
+                feedbackEl.style.color = 'red';
             } else {
                 // Simpan profile ke tabel profiles
                 const userId = data.user.id;
                 const { error: profileErr } = await supabase.from('profiles').insert([{ id: userId, username, email }]);
                 if (profileErr) console.error('Error menyimpan profile:', profileErr.message);
-                alert("Pendaftaran berhasil! Silakan cek email kamu untuk verifikasi.");
+                feedbackEl.textContent = 'Pendaftaran berhasil! Silakan cek email kamu untuk verifikasi.';
+                feedbackEl.style.color = 'green';
                 registerForm.reset();
-                window.location.href = "/login.html";
+                // beri waktu user lihat pesan sebelum redirect
+                setTimeout(() => { window.location.href = "/login.html"; }, 2000);
             }
             document.getElementById('register-button').setAttribute('aria-busy', 'false');
         });
