@@ -140,27 +140,137 @@
 
         async function calculateAndDisplayDebt() {
             debtStatusEl.innerHTML = 'Menghitung... <progress></progress>';
-            const { data: paidData } = await supabase.from('expenses').select('amount').eq('payer_id', currentUser.id);
-            const totalPaid = paidData.reduce((sum, expense) => sum + expense.amount, 0);
-
-            const { data: owedData } = await supabase.from('expense_participants').select('amount_owed').eq('participant_id', currentUser.id);
-            const totalOwed = owedData.reduce((sum, item) => sum + item.amount_owed, 0);
-
-            const balance = totalPaid - totalOwed;
             
-            if (balance > 0) {
-                debtStatusEl.innerHTML = `✅ Secara keseluruhan, temanmu berutang padamu sebesar <strong>Rp ${new Intl.NumberFormat('id-ID').format(balance)}</strong>.`;
-                debtSummaryEl.style.backgroundColor = 'var(--pico-color-green-200)';
-                debtSummaryEl.style.color = 'var(--pico-color-green-700)';
-            } else if (balance < 0) {
-                debtStatusEl.innerHTML = `❌ Secara keseluruhan, kamu berutang sebesar <strong>Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(balance))}</strong>.`;
-                debtSummaryEl.style.backgroundColor = 'var(--pico-color-red-200)';
-                debtSummaryEl.style.color = 'var(--pico-color-red-700)';
-            } else {
-                debtStatusEl.innerHTML = `🎉 Keren! Posisi keuanganmu impas.`;
+            try {
+                // Get all expenses where current user is involved (as payer or participant)
+                const { data: userExpenses } = await supabase
+                    .from('expense_participants')
+                    .select(`
+                        expense_id,
+                        participant_id,
+                        amount_owed,
+                        expenses!inner(
+                            id,
+                            payer_id,
+                            amount,
+                            description,
+                            profiles!inner(username)
+                        )
+                    `)
+                    .or(`participant_id.eq.${currentUser.id},expenses.payer_id.eq.${currentUser.id}`);
+
+                // Calculate individual balances
+                const balances = {};
+                
+                if (userExpenses) {
+                    userExpenses.forEach(item => {
+                        const expense = item.expenses;
+                        const payerId = expense.payer_id;
+                        const participantId = item.participant_id;
+                        const amountOwed = item.amount_owed;
+                        
+                        // Skip if current user owes themselves
+                        if (payerId === participantId) return;
+                        
+                        if (payerId === currentUser.id) {
+                            // Current user paid, someone owes them
+                            const otherId = participantId;
+                            if (!balances[otherId]) balances[otherId] = { amount: 0, username: '' };
+                            balances[otherId].amount += amountOwed;
+                        } else if (participantId === currentUser.id) {
+                            // Current user owes someone
+                            const otherId = payerId;
+                            if (!balances[otherId]) balances[otherId] = { amount: 0, username: '' };
+                            balances[otherId].amount -= amountOwed;
+                        }
+                    });
+                }
+
+                // Get usernames for balances
+                if (Object.keys(balances).length > 0) {
+                    const { data: profiles } = await supabase
+                        .from('profiles')
+                        .select('id, username')
+                        .in('id', Object.keys(balances));
+                    
+                    profiles?.forEach(profile => {
+                        if (balances[profile.id]) {
+                            balances[profile.id].username = profile.username;
+                        }
+                    });
+                }
+
+                displayIndividualBalances(balances);
+                
+            } catch (error) {
+                console.error('Error calculating debts:', error);
+                debtStatusEl.innerHTML = 'Error menghitung hutang';
+            }
+        }
+
+        function displayIndividualBalances(balances) {
+            let html = '';
+            let netBalance = 0;
+            
+            const youOwe = [];
+            const youAreOwed = [];
+            
+            Object.entries(balances).forEach(([userId, data]) => {
+                const amount = data.amount;
+                const username = data.username || 'Unknown User';
+                
+                if (amount > 0) {
+                    // You are owed money
+                    youAreOwed.push({ username, amount });
+                    netBalance += amount;
+                } else if (amount < 0) {
+                    // You owe money
+                    youOwe.push({ username, amount: Math.abs(amount) });
+                    netBalance += amount;
+                }
+            });
+
+            // Display individual balances
+            if (youOwe.length > 0) {
+                html += '<div style="margin-bottom: 1rem;"><strong>🔴 Kamu berhutang:</strong><ul>';
+                youOwe.forEach(debt => {
+                    html += `<li>Rp ${new Intl.NumberFormat('id-ID').format(debt.amount)} ke <strong>${debt.username}</strong></li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (youAreOwed.length > 0) {
+                html += '<div style="margin-bottom: 1rem;"><strong>🟢 Kamu akan menerima:</strong><ul>';
+                youAreOwed.forEach(credit => {
+                    html += `<li>Rp ${new Intl.NumberFormat('id-ID').format(credit.amount)} dari <strong>${credit.username}</strong></li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (youOwe.length === 0 && youAreOwed.length === 0) {
+                html = '🎉 Keren! Tidak ada hutang piutang.';
                 debtSummaryEl.style.backgroundColor = 'var(--card-background-color)';
                 debtSummaryEl.style.color = 'var(--pico-color)';
+            } else {
+                // Net balance
+                html += '<hr><div style="text-align: center; font-weight: bold;">';
+                if (netBalance > 0) {
+                    html += `<span style="color: green;">Net: Kamu akan menerima Rp ${new Intl.NumberFormat('id-ID').format(netBalance)}</span>`;
+                    debtSummaryEl.style.backgroundColor = 'var(--pico-color-green-200)';
+                    debtSummaryEl.style.color = 'var(--pico-color-green-700)';
+                } else if (netBalance < 0) {
+                    html += `<span style="color: red;">Net: Kamu berhutang Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(netBalance))}</span>`;
+                    debtSummaryEl.style.backgroundColor = 'var(--pico-color-red-200)';
+                    debtSummaryEl.style.color = 'var(--pico-color-red-700)';
+                } else {
+                    html += '<span>Net: Impas</span>';
+                    debtSummaryEl.style.backgroundColor = 'var(--card-background-color)';
+                    debtSummaryEl.style.color = 'var(--pico-color)';
+                }
+                html += '</div>';
             }
+
+            debtStatusEl.innerHTML = html;
         }
         
         // =================================================================================
