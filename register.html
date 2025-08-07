@@ -14,7 +14,7 @@
     <main class="container">
         <article>
             <h1 style="text-align: center;">Daftar Akun Baru</h1>
-            <form id="register-form">
+            <form id="register-form" action="#">
                 <label for="username">Username</label>
                 <input type="text" id="username" name="username" placeholder="username pilihanmu" required>
                 
@@ -32,14 +32,16 @@
             </footer>
         </article>
     </main>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
+    <!-- Supabase client via ESM -->
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
         const SUPABASE_URL = 'https://mewreafpeuawlnaworov.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld3JlYWZwZXVhd2xuYXdvcm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MzgyNTQsImV4cCI6MjA3MDExNDI1NH0.R7sdHt7Ry3jt4kIaMH-IXnBUUzteA2Bvw4Eq8ZhncEo';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const registerForm = document.getElementById('register-form');
         const feedbackEl = document.getElementById('register-feedback');
+
         registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             feedbackEl.textContent = '';
