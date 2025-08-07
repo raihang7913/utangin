@@ -142,65 +142,96 @@
             debtStatusEl.innerHTML = 'Menghitung... <progress></progress>';
             
             try {
-                // Get all expenses where current user is involved (as payer or participant)
-                const { data: userExpenses } = await supabase
+                // Get simpler data - all expense participants for current user
+                const { data: userParticipants, error: participantsError } = await supabase
                     .from('expense_participants')
-                    .select(`
-                        expense_id,
-                        participant_id,
-                        amount_owed,
-                        expenses!inner(
-                            id,
-                            payer_id,
-                            amount,
-                            description,
-                            profiles!inner(username)
-                        )
-                    `)
-                    .or(`participant_id.eq.${currentUser.id},expenses.payer_id.eq.${currentUser.id}`);
+                    .select('expense_id, participant_id, amount_owed')
+                    .eq('participant_id', currentUser.id);
+
+                if (participantsError) {
+                    console.error('Error fetching participants:', participantsError);
+                    debtStatusEl.innerHTML = 'Error memuat data hutang';
+                    return;
+                }
+
+                // Get all expenses where current user is the payer
+                const { data: userExpenses, error: expensesError } = await supabase
+                    .from('expenses')
+                    .select('id, payer_id, amount')
+                    .eq('payer_id', currentUser.id);
+
+                if (expensesError) {
+                    console.error('Error fetching expenses:', expensesError);
+                    debtStatusEl.innerHTML = 'Error memuat data pengeluaran';
+                    return;
+                }
+
+                // Get all participants for expenses where current user is payer
+                const expenseIds = userExpenses?.map(e => e.id) || [];
+                const { data: allParticipants, error: allParticipantsError } = await supabase
+                    .from('expense_participants')
+                    .select('expense_id, participant_id, amount_owed')
+                    .in('expense_id', expenseIds);
+
+                if (allParticipantsError) {
+                    console.error('Error fetching all participants:', allParticipantsError);
+                }
+
+                // Get all user profiles for username mapping
+                const { data: profiles, error: profilesError } = await supabase
+                    .from('profiles')
+                    .select('id, username');
+
+                if (profilesError) {
+                    console.error('Error fetching profiles:', profilesError);
+                }
+
+                const profileMap = {};
+                profiles?.forEach(profile => {
+                    profileMap[profile.id] = profile.username;
+                });
 
                 // Calculate individual balances
                 const balances = {};
-                
-                if (userExpenses) {
-                    userExpenses.forEach(item => {
-                        const expense = item.expenses;
-                        const payerId = expense.payer_id;
-                        const participantId = item.participant_id;
-                        const amountOwed = item.amount_owed;
-                        
-                        // Skip if current user owes themselves
-                        if (payerId === participantId) return;
-                        
-                        if (payerId === currentUser.id) {
-                            // Current user paid, someone owes them
-                            const otherId = participantId;
-                            if (!balances[otherId]) balances[otherId] = { amount: 0, username: '' };
-                            balances[otherId].amount += amountOwed;
-                        } else if (participantId === currentUser.id) {
-                            // Current user owes someone
-                            const otherId = payerId;
-                            if (!balances[otherId]) balances[otherId] = { amount: 0, username: '' };
-                            balances[otherId].amount -= amountOwed;
-                        }
-                    });
-                }
 
-                // Get usernames for balances
-                if (Object.keys(balances).length > 0) {
-                    const { data: profiles } = await supabase
-                        .from('profiles')
-                        .select('id, username')
-                        .in('id', Object.keys(balances));
-                    
-                    profiles?.forEach(profile => {
-                        if (balances[profile.id]) {
-                            balances[profile.id].username = profile.username;
-                        }
-                    });
-                }
+                // Money owed TO current user (from expenses current user paid)
+                allParticipants?.forEach(participant => {
+                    if (participant.participant_id !== currentUser.id) {
+                        const otherId = participant.participant_id;
+                        if (!balances[otherId]) balances[otherId] = 0;
+                        balances[otherId] += participant.amount_owed; // Others owe current user
+                    }
+                });
 
-                displayIndividualBalances(balances);
+                // Money current user OWES (from expenses others paid)
+                userParticipants?.forEach(participant => {
+                    // Find the expense to get who paid
+                    const expense = userExpenses?.find(e => e.id === participant.expense_id);
+                    if (!expense) {
+                        // This expense was paid by someone else, current user owes them
+                        // We need to find who paid - let's get it separately
+                        // For now, we'll handle this in a simpler way
+                    }
+                });
+
+                // Get expenses where current user is participant but not payer
+                const { data: otherExpenses, error: otherExpensesError } = await supabase
+                    .from('expense_participants')
+                    .select(`
+                        expense_id,
+                        amount_owed,
+                        expenses!inner(payer_id)
+                    `)
+                    .eq('participant_id', currentUser.id)
+                    .neq('expenses.payer_id', currentUser.id);
+
+                otherExpenses?.forEach(item => {
+                    const payerId = item.expenses.payer_id;
+                    if (!balances[payerId]) balances[payerId] = 0;
+                    balances[payerId] -= item.amount_owed; // Current user owes this person
+                });
+
+                displayIndividualBalances(balances, profileMap);
                 
             } catch (error) {
                 console.error('Error calculating debts:', error);
@@ -208,16 +239,15 @@
             }
         }
 
-        function displayIndividualBalances(balances) {
+        function displayIndividualBalances(balances, profileMap) {
             let html = '';
             let netBalance = 0;
             
             const youOwe = [];
             const youAreOwed = [];
             
-            Object.entries(balances).forEach(([userId, data]) => {
-                const amount = data.amount;
-                const username = data.username || 'Unknown User';
+            Object.entries(balances).forEach(([userId, amount]) => {
+                const username = profileMap[userId] || 'Unknown User';
                 
                 if (amount > 0) {
                     // You are owed money
