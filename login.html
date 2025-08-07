@@ -33,7 +33,7 @@
     <script>
         const SUPABASE_URL = 'https://mewreafpeuawlnaworov.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld3JlYWZwZXVhd2xuYXdvcm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MzgyNTQsImV4cCI6MjA3MDExNDI1NH0.R7sdHt7Ry3jt4kIaMH-IXnBUUzteA2Bvw4Eq8ZhncEo';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const loginForm = document.getElementById('login-form');
         loginForm.addEventListener('submit', async (event) => {
@@ -43,26 +43,32 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
-            // Cari email berdasarkan username
-            const { data:profile, error:profileErr } = await supabase.from('profiles').select('email').eq('username', username).single();
-            if (profileErr || !profile) {
-                alert('Username tidak ditemukan');
-                document.getElementById('login-button').setAttribute('aria-busy', 'false');
-                return;
-            }
-            const email = profile.email;
+            try {
+                // Cari email berdasarkan username
+                const { data: profile, error: profileErr } = await supabase.from('profiles').select('email').eq('username', username).single();
+                if (profileErr || !profile) {
+                    alert('Username tidak ditemukan');
+                    document.getElementById('login-button').setAttribute('aria-busy', 'false');
+                    return;
+                }
+                const email = profile.email;
 
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password: password,
-            });
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password: password,
+                });
 
-            if (error) {
-                alert("Error login: " + error.message);
+                if (error) {
+                    alert("Error login: " + error.message);
+                    document.getElementById('login-button').setAttribute('aria-busy', 'false');
+                } else {
+                    // Jika berhasil, arahkan ke halaman utama
+                    window.location.href = "/Index.html";
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                alert('Terjadi kesalahan saat login: ' + err.message);
                 document.getElementById('login-button').setAttribute('aria-busy', 'false');
-            } else {
-                // Jika berhasil, arahkan ke halaman utama
-                window.location.href = "/Index.html";
             }
         });
     </script>
