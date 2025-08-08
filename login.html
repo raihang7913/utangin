@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Kontrakan Resbal</title>
-    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1/css/pico.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.*/css/pico.min.css">
     <style>
         body { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         article { width: 400px; }
@@ -15,8 +15,8 @@
         <article>
             <h1 style="text-align: center;">Login</h1>
             <form id="login-form">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="Username kamu" required>
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="email@kamu.com" required>
 
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" placeholder="Password kamu" required>
@@ -31,44 +31,29 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        const SUPABASE_URL = 'https://mewreafpeuawlnaworov.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld3JlYWZwZXVhd2xuYXdvcm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MzgyNTQsImV4cCI6MjA3MDExNDI1NH0.R7sdHt7Ry3jt4kIaMH-IXnBUUzteA2Bvw4Eq8ZhncEo';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const loginForm = document.getElementById('login-form');
         loginForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             document.getElementById('login-button').setAttribute('aria-busy', 'true');
 
-            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 
-            try {
-                // Cari email berdasarkan username
-                const { data: profile, error: profileErr } = await supabase.from('profiles').select('email').eq('username', username).single();
-                if (profileErr || !profile) {
-                    alert('Username tidak ditemukan');
-                    document.getElementById('login-button').setAttribute('aria-busy', 'false');
-                    return;
-                }
-                const email = profile.email;
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
 
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password: password,
-                });
-
-                if (error) {
-                    alert("Error login: " + error.message);
-                    document.getElementById('login-button').setAttribute('aria-busy', 'false');
-                } else {
-                    // Jika berhasil, arahkan ke halaman utama
-                    window.location.href = "/Index.html";
-                }
-            } catch (err) {
-                console.error('Login error:', err);
-                alert('Terjadi kesalahan saat login: ' + err.message);
+            if (error) {
+                alert("Error login: " + error.message);
                 document.getElementById('login-button').setAttribute('aria-busy', 'false');
+            } else {
+                // Jika berhasil, arahkan ke halaman utama
+                window.location.href = "index.html";
             }
         });
     </script>
